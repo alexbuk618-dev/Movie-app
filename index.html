@@ -31,38 +31,46 @@
             display: block;
             width: 100%;
             padding: 14px 0;
-            margin-top: 12px;
+            margin-top: 16px;
             background-color: var(--tg-theme-button-color, #2ea6ff);
             color: var(--tg-theme-button-text-color, #ffffff);
             text-decoration: none;
             border-radius: 10px;
             font-weight: bold;
+            cursor: pointer;
+            border: none;
+            font-size: 16px;
         }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2 id="movie-title">Загрузка...</h2>
+        <h2 id="movie-title">Фильм найден</h2>
         <p id="movie-id" style="opacity: 0.6; font-size: 14px;"></p>
-        <p>Выберите площадку для просмотра:</p>
-        <a id="kp-link" href="#" target="_blank" class="btn">Смотреть на Кинопоиске</a>
+        <p>Нажмите кнопку ниже для перехода:</p>
+        <button id="kp-btn" class="btn">Смотреть на Кинопоиске</button>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Раскрываем окно на весь экран
+        tg.ready();
+        tg.expand();
 
-        // Получаем ID и название из URL
         const params = new URLSearchParams(window.location.search);
         const filmId = params.get('id');
-        const title = params.get('title') || 'Фильм';
+        const title = params.get('title');
 
-        document.getElementById('movie-title').innerText = title;
-        document.getElementById('movie-id').innerText = 'ID фильма: ' + filmId;
-        
-        // Подставляем ID в ссылку на официальную страницу фильма
+        if (title) {
+            document.getElementById('movie-title').innerText = title;
+        }
+
         if (filmId) {
-            document.getElementById('kp-link').href = `https://kinopoisk.ru{filmId}/`;
+            document.getElementById('movie-id').innerText = 'ID на Кинопоиске: ' + filmId;
+            document.getElementById('kp-btn').onclick = function() {
+                tg.openLink('https://kinopoisk.ru' + filmId + '/');
+            };
+        } else {
+            document.getElementById('movie-id').innerText = 'Ошибка: ID фильма не передан в ссылку';
         }
     </script>
 </body>
