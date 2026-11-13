@@ -1,77 +1,129 @@
+```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Просмотр фильма</title>
+    <title>Онлайн-кинотеатр</title>
     <script src="https://telegram.org"></script>
     <style>
+        * { box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: var(--tg-theme-bg-color, #181818);
-            color: var(--tg-theme-text-color, #ffffff);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #0f0f13;
+            color: #ffffff;
+            margin: 0;
+            padding: 16px;
             display: flex;
             flex-direction: column;
             align-items: center;
+        }
+        .header {
+            width: 100%;
+            max-width: 720px;
+            margin-bottom: 14px;
+        }
+        h1 {
+            font-size: 20px;
+            margin: 0 0 4px 0;
+        }
+        .meta {
+            font-size: 13px;
+            color: #9e9ea7;
+        }
+        .player-box {
+            width: 100%;
+            max-width: 720px;
+            aspect-ratio: 16 / 9;
+            background: #1b1b22;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
             justify-content: center;
-            height: 100vh;
-            margin: 0;
+            border: 1px solid #2c2c35;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .status {
             padding: 20px;
             text-align: center;
+            color: #b0b0ba;
+            font-size: 14px;
         }
-        .card {
-            background: var(--tg-theme-secondary-bg-color, #242424);
-            padding: 24px;
-            border-radius: 16px;
-            max-width: 400px;
-            width: 100%;
-        }
-        h2 { margin-top: 0; }
         .btn {
-            display: block;
-            width: 100%;
-            padding: 14px 0;
+            display: inline-block;
             margin-top: 16px;
-            background-color: var(--tg-theme-button-color, #2ea6ff);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            text-decoration: none;
+            padding: 12px 24px;
+            background: #2ea6ff;
+            color: #fff;
             border-radius: 10px;
-            font-weight: bold;
-            cursor: pointer;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
             border: none;
-            font-size: 16px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2 id="movie-title">Фильм найден</h2>
-        <p id="movie-id" style="opacity: 0.6; font-size: 14px;"></p>
-        <p>Нажмите кнопку ниже для перехода:</p>
-        <button id="kp-btn" class="btn">Смотреть на Кинопоиске</button>
+    <div class="header">
+        <h1 id="movie-title">Загрузка фильма...</h1>
+        <div class="meta" id="movie-meta">Поиск доступного видеопотока</div>
     </div>
+
+    <div class="player-box" id="player-container">
+        <div class="status" id="status-text">⏳ Подключаем плеер...</div>
+    </div>
+
+    <button class="btn" id="close-btn">Закрыть плеер</button>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
 
+        document.getElementById('close-btn').onclick = () => tg.close();
+
         const params = new URLSearchParams(window.location.search);
-        const filmId = params.get('id');
-        const title = params.get('title');
+        const title = params.get('title') || 'Фильм';
+        const year = params.get('year') || '';
 
-        if (title) {
-            document.getElementById('movie-title').innerText = title;
+        document.getElementById('movie-title').innerText = year ? `${title} (${year})` : title;
+
+        async function loadOpenPlayer() {
+            const statusEl = document.getElementById('status-text');
+            const metaEl = document.getElementById('movie-meta');
+            const container = document.getElementById('player-container');
+
+            try {
+                // Ищем полнометражный ролик в открытом доступе через публичный поиск Rutube
+                const query = encodeURIComponent(`${title} ${year} фильм`);
+                const res = await fetch(`https://rutube.ru{query}&format=json`);
+                const data = await res.json();
+                const results = data.results || [];
+
+                // Отбираем видео длительностью более 40 минут (2400 сек)
+                const fullMovie = results.find(v => v.duration >= 2400);
+
+                if (fullMovie && fullMovie.embed_url) {
+                    metaEl.innerText = `Источник: открытый каталог (${Math.floor(fullMovie.duration / 60)} мин.)`;
+                    container.innerHTML = `<iframe src="${fullMovie.embed_url}" allow="clipboard-write; autoplay" allowfullscreen></iframe>`;
+                } else {
+                    metaEl.innerText = 'Бесплатный поток в открытом доступе не найден';
+                    statusEl.innerText = 'Этот фильм доступен только по подписке в официальных онлайн-кинотеатрах.';
+                }
+            } catch (err) {
+                metaEl.innerText = 'Ошибка загрузки плеера';
+                statusEl.innerText = 'Не удалось подключиться к видеосерверу. Проверьте соединение или отключите VPN для российских доменов.';
+            }
         }
 
-        if (filmId) {
-            document.getElementById('movie-id').innerText = 'ID на Кинопоиске: ' + filmId;
-            document.getElementById('kp-btn').onclick = function() {
-                tg.openLink('https://kinopoisk.ru' + filmId + '/');
-            };
-        } else {
-            document.getElementById('movie-id').innerText = 'Ошибка: ID фильма не передан в ссылку';
-        }
+        loadOpenPlayer();
     </script>
 </body>
 </html>
